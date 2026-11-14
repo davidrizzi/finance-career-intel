@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+out/
+_site/
+.env
+# The Excel master stays on your machine by default (public repo). See README > Updating the Excel.
+input/*.xlsx
+input/*.xls
+# never commit personal tracker exports
+*applications-backup*.json
+.http_cache/
+node_modules/

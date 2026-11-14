@@ -1,0 +1,72 @@
+{
+  "_comment": "All tunable behaviour lives here. Edit and commit; no code changes needed.",
+  "geo": {
+    "high": {
+      "Switzerland": ["Lugano", "Zurich", "Zug", "Geneva", "Basel"],
+      "Italy": ["Milan"]
+    },
+    "medium": {
+      "United Kingdom": ["London"],
+      "Luxembourg": ["Luxembourg"],
+      "Australia": ["Sydney", "Melbourne", "Perth"],
+      "United Arab Emirates": ["Dubai"]
+    },
+    "_note": "Basel is not in the original brief but is marked 'Alta' in the Excel, so it is kept as high priority. Other Swiss cities score as 'swiss_other'.",
+    "scores": {"high": 1.0, "swiss_other": 0.85, "medium": 0.6, "target_country_other_city": 0.35, "other": 0.15, "unknown": 0.3}
+  },
+  "collection": {
+    "keep_outside_target_locations": true,
+    "description_max_chars": 3500,
+    "request_timeout_seconds": 25,
+    "max_retries": 3,
+    "min_seconds_between_requests_per_host": 1.0,
+    "max_detail_requests_per_source": 40,
+    "detail_recheck_days": 7,
+    "removed_after_missing_checks": 2,
+    "verification_failed_after_failures": 3,
+    "closing_soon_days": 7,
+    "user_agent": "FinanceCareerIntel/1.0 (personal job monitor; +https://github.com/)"
+  },
+  "discovery": {
+    "max_companies_per_run": 200,
+    "recheck_after_days": 30
+  },
+  "scoring": {
+    "weights": {"sector": 25, "seniority": 20, "geography": 20, "profile": 15, "language": 10, "contract": 10},
+    "sector_preferences": {
+      "Investment Banking": 1.0, "Mergers & Acquisitions": 1.0, "Corporate Finance": 0.95,
+      "Private Equity": 0.95, "Transaction Services": 0.85, "Valuation": 0.85,
+      "Financial Advisory": 0.85, "Equity Research": 0.85, "Investment Research": 0.8,
+      "Venture Capital": 0.8, "Hedge Funds": 0.85, "Alternative Investments": 0.85,
+      "Asset Management": 0.8, "Investment Management": 0.8, "Portfolio Management": 0.8,
+      "Fund Management": 0.7, "Family Offices": 0.8, "Wealth Management": 0.7,
+      "Financial Consulting": 0.65, "Quantitative Finance": 0.9, "Finance (general)": 0.5
+    },
+    "seniority_scores": {
+      "Internship": 1.0, "Summer Analyst": 1.0, "Off-cycle": 1.0, "Graduate Programme": 1.0,
+      "Working Student": 0.9, "Trainee": 0.95, "Junior / Analyst": 0.9, "Entry-level": 0.85,
+      "Associate (junior)": 0.6, "Ambiguous": 0.5, "Experienced": 0.1
+    },
+    "contract_scores": {
+      "Internship": 1.0, "Graduate programme": 1.0, "Full-time": 0.9, "Working student": 0.85,
+      "Fixed-term": 0.75, "Apprenticeship / Trainee": 0.85, "Part-time": 0.5, "Not specified": 0.5
+    }
+  },
+  "candidate": {
+    "_comment": "Public repository: keep this generic. Used only by the deterministic scorer.",
+    "languages": {"Italian": "C2", "English": "C1", "German": "A2", "French": "none"},
+    "degree_keywords": ["finance", "economics", "fintech", "financial technology", "business", "banking", "quantitative", "economia", "finanza", "wirtschaft", "betriebswirtschaft", "économie", "master", "msc", "bachelor", "bsc", "university student", "studente", "laurea", "studium", "student"],
+    "skill_keywords": ["excel", "vba", "python", "sql", "bloomberg", "factset", "dcf", "valuation", "financial model", "financial modelling", "financial modeling", "three-statement", "3-statement", "powerpoint", "capital markets", "corporate finance", "m&a", "due diligence", "pitch", "analytical"],
+    "blockers": ["phd required", "cfa charterholder", "law degree", "qualified lawyer", "qualified accountant", "aca qualified", "acca qualified", "juris doctor", "anwaltspatent", "medical degree", "security clearance"]
+  },
+  "notifications": {
+    "send_empty_digest": false,
+    "min_score_for_digest": 45,
+    "max_jobs_in_digest": 40,
+    "high_priority_only": false,
+    "site_url": ""
+  },
+  "privacy": {
+    "publish_excel_monitoring_status": false
+  }
+}

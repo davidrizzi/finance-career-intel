@@ -1,0 +1,132 @@
+name: Daily update
+
+# Collects postings, updates the JSON databases, emails the digest and publishes the site.
+on:
+  schedule:
+    - cron: "23 4 * * *"   # 04:23 UTC every day (off the hour: GitHub delays runs scheduled at :00)
+  workflow_dispatch:
+    inputs:
+      discover_limit:
+        description: "Career pages to analyse for their recruitment system in this run (use 600 for the first run)"
+        default: "150"
+      skip_email:
+        description: "Do not send the digest in this run"
+        type: boolean
+        default: false
+      send_test_email:
+        description: "Send a test email to check the SMTP secrets"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: fcip-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 1-2  load the company database, analyse career portals not yet analysed
+      - name: Identify recruitment systems (next batch)
+        continue-on-error: true
+        run: python scripts/discover_sources.py --limit "${{ github.event.inputs.discover_limit || '150' }}"
+
+      # 3-9  collect, normalise, deduplicate, verify, score, detect changes, write JSON
+      - name: Collect and score job postings
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: python scripts/update_jobs.py
+
+      - name: Re-check postings that do not come from a pollable board
+        continue-on-error: true
+        run: python scripts/verify_jobs.py
+
+      # The data is committed BEFORE any email is attempted: a mail failure can never lose an update.
+      - name: Commit updated data
+        run: |
+          git config user.name "fcip-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "data: daily update $(date -u +%F)"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Test email
+        if: ${{ github.event.inputs.send_test_email == 'true' }}
+        continue-on-error: true
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+        run: python scripts/send_notifications.py --test
+
+      # 10-11  build and send the digest; never fails the run
+      - name: Send daily digest
+        if: ${{ github.event.inputs.skip_email != 'true' }}
+        continue-on-error: true
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_SECURITY: ${{ secrets.SMTP_SECURITY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: python scripts/send_notifications.py
+
+      # 12  notification history (what was already announced)
+      - name: Commit notification history
+        continue-on-error: true
+        run: |
+          git add data/notifications.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "data: notification history $(date -u +%F)"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Build the website
+        run: python scripts/build_site.py
+
+      - uses: actions/configure-pages@v5
+        continue-on-error: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

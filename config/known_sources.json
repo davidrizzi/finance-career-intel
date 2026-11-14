@@ -1,0 +1,26 @@
+{
+ "_comment": "Recruitment-system endpoints confirmed by a live request. 'evidence' records what was checked and when. Add your own entries here (company = exact name in the Excel) and run scripts/update_jobs.py. Sources found automatically by scripts/discover_sources.py are stored in data/sources.json, not here.",
+ "sources": [
+  {"company": "Point72", "ats": "greenhouse", "token": "point72", "evidence": "Greenhouse board name 'Point72', 200 postings, checked live 2026-11-13"},
+  {"company": "Squarepoint Capital", "ats": "greenhouse", "token": "squarepointcapital", "evidence": "Greenhouse board name 'Squarepoint Capital', 90 postings, checked live 2026-11-13"},
+  {"company": "Man Group", "ats": "greenhouse", "token": "mangroup", "evidence": "Greenhouse board name 'Man Group', 66 postings, checked live 2026-11-13"},
+  {"company": "Schonfeld Strategic Advisors", "ats": "greenhouse", "token": "schonfeld", "evidence": "Greenhouse board name 'Schonfeld', 70 postings, checked live 2026-11-13"},
+  {"company": "ExodusPoint Capital Management", "ats": "greenhouse", "token": "exoduspoint", "evidence": "Greenhouse board name 'ExodusPoint', 3 postings, checked live 2026-11-13"},
+  {"company": "Qube Research and Technologies (QRT)", "ats": "greenhouse", "token": "quberesearchandtechnologies", "evidence": "Greenhouse board name 'Qube Research & Technologies', 210 postings, checked live 2026-11-13"},
+  {"company": "GSA Capital", "ats": "greenhouse", "token": "gsacapital", "evidence": "Greenhouse board name 'GSA', 12 postings (11 in London), checked live 2026-11-13"},
+  {"company": "Winton Group", "ats": "greenhouse", "token": "winton", "evidence": "Greenhouse board name 'Winton', 7 postings (all London), checked live 2026-11-13"},
+  {"company": "Oak Hill Advisors", "ats": "greenhouse", "token": "oakhilladvisors", "evidence": "Greenhouse board name 'Oak Hill Advisors', 6 postings, checked live 2026-11-13"},
+  {"company": "General Atlantic", "ats": "greenhouse", "token": "generalatlantic", "evidence": "Greenhouse board name 'General Atlantic', 12 postings, checked live 2026-11-13"},
+  {"company": "EQT", "ats": "greenhouse", "token": "eqtpartners", "evidence": "Greenhouse board name 'EQT Group', 11 postings, checked live 2026-11-13"},
+  {"company": "Lincoln International", "ats": "greenhouse", "token": "lincolninternational", "evidence": "Greenhouse board name 'Lincoln International', 36 postings, checked live 2026-11-13"},
+  {"company": "William Blair", "ats": "greenhouse", "token": "williamblair", "evidence": "Greenhouse board name 'William Blair', 48 postings, checked live 2026-11-13"},
+  {"company": "AlixPartners", "ats": "greenhouse", "token": "alixpartners", "evidence": "Greenhouse board name 'AlixPartners', 132 postings, checked live 2026-11-13"},
+  {"company": "Teneo (Financial Advisory)", "ats": "greenhouse", "token": "teneo", "evidence": "Greenhouse board name 'Teneo', 57 postings, checked live 2026-11-13"},
+  {"company": "Engelhart (ECTP)", "ats": "greenhouse", "token": "engelhart", "evidence": "Greenhouse board name 'Engelhart', 3 postings, checked live 2026-11-13"},
+  {"company": "Swissquote Bank SA", "ats": "smartrecruiters", "token": "swissquote", "evidence": "SmartRecruiters company name 'Swissquote', 36 postings, checked live 2026-11-13"},
+  {"company": "Tikehau Capital", "ats": "smartrecruiters", "token": "tikehaucapital", "evidence": "SmartRecruiters company name 'Tikehau Capital', 1 posting, checked live 2026-11-13"},
+  {"company": "IQ-EQ Luxembourg S.A.", "ats": "smartrecruiters", "token": "iqeq", "evidence": "SmartRecruiters company name 'IQ-EQ', 117 postings, checked live 2026-11-13"},
+  {"company": "BlueCrest Capital", "ats": "smartrecruiters", "token": "bluecrest", "evidence": "SmartRecruiters company name 'BlueCrest', 1 posting, checked live 2026-11-13"},
+  {"company": "Partners Group", "ats": "successfactors", "params": {"base_url": "https://jobs.partnersgroup.com"}, "token": "jobs.partnersgroup.com", "evidence": "SuccessFactors career site linked from partnersgroup.com/en/careers; search page listed 76 postings, checked live 2026-11-13"}
+ ]
+}
