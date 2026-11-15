@@ -22,6 +22,8 @@
     "min_seconds_between_requests_per_host": 1.0,
     "max_detail_requests_per_source": 40,
     "detail_recheck_days": 7,
+    "large_board_threshold": 300,
+    "_large_board_note": "Boards listing more postings than this (global banks, consultancies) are limited to the countries in geo.high and geo.medium. Smaller boards keep every location.",
     "removed_after_missing_checks": 2,
     "verification_failed_after_failures": 3,
     "closing_soon_days": 7,

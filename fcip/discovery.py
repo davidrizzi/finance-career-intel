@@ -25,9 +25,30 @@ def discover_source(source: dict, company: dict, http: Http, settings: dict) -> 
     try:
         html, final, dets, has_jsonld = _analyse(source["url"], http)
     except SourceError as exc:
-        source.update(status="unreachable", last_error=str(exc)[:300],
-                      consecutive_failures=source.get("consecutive_failures", 0) + 1)
-        return []
+        # a dead career link in the Excel: look for the careers page from the official website instead
+        site = company.get("website")
+        if source["type"] == "career_site" and site and site.rstrip("/") != source["url"].rstrip("/"):
+            try:
+                home, home_final = http.fetch_page(site)
+                links = find_links(home, home_final, CAREER_LINK_RX, limit=3)
+                for link in links:
+                    try:
+                        html, final, dets, has_jsonld = _analyse(link, http)
+                        source["career_url_detected"] = final
+                        source["evidence"] = f"Career URL in the Excel failed ({str(exc)[:60]}); careers page found on {site}"
+                        break
+                    except SourceError:
+                        continue
+                else:
+                    raise exc
+            except SourceError:
+                source.update(status="unreachable", last_error=str(exc)[:300],
+                              consecutive_failures=source.get("consecutive_failures", 0) + 1)
+                return []
+        else:
+            source.update(status="unreachable", last_error=str(exc)[:300],
+                          consecutive_failures=source.get("consecutive_failures", 0) + 1)
+            return []
     source.update(last_error=None, consecutive_failures=0)
     evidence_page = final
     if not dets and not has_jsonld:
@@ -54,7 +75,8 @@ def discover_source(source: dict, company: dict, http: Http, settings: dict) -> 
             evidence=f"'{d['evidence']}' found on {evidence_page} on {ts[:10]}"))
     if new_sources:
         source.update(status="resolved", ats=new_sources[0]["ats"], last_success=ts,
-                      evidence=f"Recruitment system identified: {', '.join(s['ats'] for s in new_sources)}")
+                      evidence=f"Recruitment system identified: {', '.join(s['ats'] for s in new_sources)}"
+                               + (f" ({source['evidence']})" if source.get("career_url_detected") and source.get("evidence") else ""))
         return new_sources
     if has_jsonld:
         source.update(status="unverified", ats="jsonld", method="jsonld", last_success=ts,

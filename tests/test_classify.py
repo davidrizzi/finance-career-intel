@@ -53,6 +53,10 @@ def test_no_description_means_unverified_not_english_only():
     ("Receptionist", "PE", None, False),
     ("Stagista Corporate Finance", "Boutique IB", "Corporate Finance", True),
     ("Praktikant Wealth Management", "Banca privata", "Wealth Management", True),
+    ("Copywriting Analyst", "Consulenza", None, False),
+    ("Business Advisory Associate", "Consulenza", None, False),
+    ("Transaction Services Analyst", "Consulenza", "Transaction Services", True),
+    ("Relationship Banker - Wickenburg Branch", "Bulge Bracket", None, False),
 ])
 def test_sector_classification(title, category, sector, relevant):
     r = classify.classify_sector(title, "", "", category)
@@ -74,6 +78,8 @@ def test_sector_classification(title, category, sector, relevant):
     ("Investment Analyst", "1-2 years of experience in M&A is a plus.", "Junior / Analyst", True),
     ("Junior Associate", "", "Junior / Analyst", True),
     ("Head of Graduate Recruitment", "", "Graduate Programme", True),
+    ("Product Manager - Global Banking Platform", "", "Experienced", False),
+    ("Assistant Manager, Fund Accounting", "", "Ambiguous", True),
 ])
 def test_seniority_classification(title, desc, seniority, include):
     r = classify.classify_seniority(title, desc)

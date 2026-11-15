@@ -404,3 +404,46 @@ def test_url_verification_is_conservative(data, settings, monkeypatch):
     assert st["j-2"]["status"] == "Removed" and "two consecutive checks" in st["j-2"]["status_note"]
     assert st["j-3"]["status"] == "Open" and st["j-1"]["url_gone_checks"] == 0
     srv.shutdown()
+
+
+def test_large_boards_are_scoped_to_target_countries_small_boards_are_not(data, replay, settings, monkeypatch):
+    monkeypatch.setitem(settings["collection"], "large_board_threshold", 2)
+    add_company("Big Bank", category="Bulge Bracket", ats="greenhouse", params={"token": "alpha"})
+    replay(GH_URL, gh_payload((1, "Investment Banking Analyst", "London", ""), (2, "Investment Banking Analyst", "Dallas, United States", ""),
+                              (3, "Investment Banking Analyst", "Taipei", ""), (4, "Investment Banking Summer Analyst", "", "")))
+    pipeline.run_update(settings)
+    cities = sorted(str(j["city"]) for j in jobs())
+    assert cities == ["London", "None"]                        # Dallas and Taipei dropped, unknown kept for its detail page
+    monkeypatch.setitem(settings["collection"], "large_board_threshold", 300)
+    pipeline.run_update(settings)
+    assert len(jobs()) == 4                                     # a specialist board keeps every location
+
+
+def test_filter_changes_drop_stored_records_and_log_it(data, replay, settings):
+    add_company("Alpha Consulting", category="Consulenza", ats="greenhouse", params={"token": "alpha"})
+    from fcip import classify
+    replay(GH_URL, gh_payload((1, "Copywriting Analyst", "Zurich", ""), (2, "Transaction Services Analyst", "Zurich", "")))
+    pipeline.run_update(settings)
+    assert [j["title"] for j in jobs()] == ["Transaction Services Analyst"]
+    db = load_json(pipeline.JOBS_FILE)                          # simulate a record stored by an older, looser filter
+    old = dict(db["jobs"][0], id="j-old", title="Supply Chain Analyst", sources=[dict(db["jobs"][0]["sources"][0])])
+    db["jobs"].append(old)
+    save_json(pipeline.JOBS_FILE, db)
+    pipeline.run_update(settings)
+    assert [j["title"] for j in jobs()] == ["Transaction Services Analyst"]
+    ev = [e for e in load_json(companies.HISTORY_FILE)["events"] if e["type"] == "job_filtered"]
+    assert ev and ev[-1]["job_id"] == "j-old"
+
+
+def test_dead_excel_career_link_falls_back_to_the_website(data, excel, replay, settings):
+    companies.import_excel(excel, settings)
+    comps = load_json(companies.COMPANIES_FILE)["companies"]
+    sources.sync_sources(comps)
+    replay("GET https://alpha.example/careers", "gone", status=404)
+    replay("GET https://alpha.example/", '<html><a href="/join-us">Careers</a></html>')
+    replay("GET https://alpha.example/join-us", '<html><a href="https://jobs.lever.co/alphacap">Open roles</a></html>')
+    src_db = sources.load_sources()
+    discovery.run_discovery(comps, src_db, settings, only_company="Alpha")
+    by = {s["id"]: s for s in src_db["sources"]}
+    assert by["s-alpha-capital-site"]["status"] == "resolved" and "s-alpha-capital-lever-alphacap" in by
+    assert "failed" in by["s-alpha-capital-site"]["evidence"]

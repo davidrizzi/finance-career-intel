@@ -71,7 +71,11 @@ NON_TARGET_RX = re.compile(
     r"marketing|communications|social media|content|brand|event(s)? (manager|coordinator)|"
     r"reception|office (manager|assistant|administrator)|executive assistant|personal assistant|\bpa\b|secretar|"
     r"segretari|assistenz|sekret|team assistant|administrative assistant|facilit|payroll|bookkeep|procurement|"
-    r"customer (service|support|care)|client service representative|surveillance|call cent|chef\b|cook|driver|cleaner|housekeep|concierge|nurse|"
+    r"customer (service|support|care)|client service representative|surveillance|call cent|"
+    r"copywrit|supply chain|logistics|\bevents? (intern|assistant|executive|specialist|coordinator)|"
+    r"health ?(&|and) ?benefits|personal insurance|insurance sales|claims|"
+    r"\bbranch\b|teller|relationship banker|associate banker|daily banking|consumer banking|retail banking|"
+    r"mortgage|product owner|scrum|chef\b|cook|driver|cleaner|housekeep|concierge|nurse|"
     r"compliance|\bkyc\b|\baml\b|financial crime|internal audit|\baudit|\btax\b|steuer|fiscal|"
     r"accountant|accounts (payable|receivable)|contabil|buchhalt|comptab", re.I)
 STRONG_FINANCE_TITLE_RX = re.compile(
@@ -88,6 +92,13 @@ CATEGORY_SECTOR = {
 }
 
 
+CONSULTING_CATEGORIES = {"consulenza", "consulting", "big four", "financial consulting"}
+FINANCE_TITLE_RX = re.compile(
+    r"financ|deal|transaction|valuation|m ?(&|and) ?a\b|merger|acquisition|banking|\bbank|capital|invest|"
+    r"restructur|private equity|\bfund|wealth|asset|treasury|credit|corporate development|due diligence|"
+    r"\bfs\b|insurance (&|and) asset|economic|strategy (&|and) transactions|turnaround", re.I)
+
+
 def classify_sector(title: str, description: str = "", department: str = "", company_category: str = "") -> dict:
     """Return {'sector', 'source', 'relevant', 'reason'}.
 
@@ -95,6 +106,11 @@ def classify_sector(title: str, description: str = "", department: str = "", com
     """
     title = title or ""
     head = f"{title} | {department or ''}"
+    if norm_text(company_category) in CONSULTING_CATEGORIES and not FINANCE_TITLE_RX.search(head) \
+            and not STRONG_FINANCE_TITLE_RX.search(title):
+        # consulting and audit firms hire for every industry: keep only finance practices
+        return {"sector": None, "source": "title", "relevant": False,
+                "reason": "consulting role without a finance practice in the title"}
     non_target = NON_TARGET_RX.search(title)
     strong = STRONG_FINANCE_TITLE_RX.search(title)
     if non_target and not strong:
@@ -195,8 +211,12 @@ def classify_seniority(title: str, description: str = "", ats_hint: str = "") ->
         label, include = "Ambiguous", True
         warning = "'Associate' title: seniority differs by firm (entry-level at some, 3+ years at others)"
     elif _MANAGER_RX.search(title):
-        label, include = "Ambiguous", True
-        warning = "'Manager' in title: usually an experienced role, check the requirements"
+        if re.search(r"assistant manager|junior|trainee|graduate", title, re.I):
+            label, include = "Ambiguous", True
+            warning = "'Manager' in title: check the experience required"
+        else:
+            return {"seniority": "Experienced", "include": False, "warning": None, "experience": exp,
+                    "reason": "'Manager' title: experienced role"}
     else:
         for n, rx in _SENIORITY_RX[:7]:
             if rx.search((description or "")[:1200]):

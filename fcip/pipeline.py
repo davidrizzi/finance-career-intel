@@ -211,6 +211,63 @@ def upsert(jobs: dict[str, dict], rec: dict, source: dict, events: list[dict], s
     return outcome
 
 
+def target_countries(settings: dict) -> set[str]:
+    geo = settings.get("geo", {})
+    return set(geo.get("high", {})) | set(geo.get("medium", {}))
+
+
+def is_large_board(source: dict, settings: dict) -> bool:
+    return (source.get("jobs_found") or 0) > settings.get("collection", {}).get("large_board_threshold", 300)
+
+
+def outside_scope(locations: list[dict], settings: dict) -> bool:
+    """True when a posting's locations are known and none is in a target country or city.
+
+    A place the database cannot name (no city, no country) stays in scope so its
+    detail page can be read. Every target city is in the alias table, so a city
+    that resolves to nothing known is not a target city.
+    """
+    targets = target_countries(settings)
+    target_cities = {c for lvl in ("high", "medium") for cities in settings.get("geo", {}).get(lvl, {}).values() for c in cities}
+    known = [l for l in locations if l.get("city") or l.get("country")]
+    if not known:
+        return False
+    return not any(l.get("country") in targets or l.get("city") in target_cities for l in known)
+
+
+def refilter_existing(jobs: dict[str, dict], companies: dict, sources: list[dict], settings: dict,
+                      events: list[dict]) -> int:
+    """Apply the current filters to stored records.
+
+    A record that no longer qualifies because the FILTERS changed (not because the
+    vacancy closed) is dropped from the public database; the deletion is logged in
+    history.json. Records captured by hand are never touched.
+    """
+    src = {s["id"]: s for s in sources}
+    dropped = 0
+    for jid, job in list(jobs.items()):
+        ats_sources = [src[s["source_id"]] for s in job.get("sources", []) if s["source_id"] in src]
+        if not ats_sources:
+            continue
+        company = companies.get(job["company_id"], {})
+        reason = None
+        sec = classify.classify_sector(job["title"], job.get("description") or "", job.get("department") or "",
+                                       company.get("category") or "")
+        sen = classify.classify_seniority(job["title"], job.get("description") or "")
+        if not sec["relevant"]:
+            reason = sec["reason"]
+        elif not sen["include"]:
+            reason = sen.get("reason")
+        elif all(is_large_board(s, settings) for s in ats_sources) and outside_scope(job.get("locations") or [], settings):
+            reason = "large board: location outside the target countries"
+        if reason:
+            del jobs[jid]
+            dropped += 1
+            events.append({"ts": now_iso(), "type": "job_filtered", "job_id": jid, "company_id": job["company_id"],
+                           "title": job["title"], "reason": reason})
+    return dropped
+
+
 def touch(job: dict, source: dict, events: list[dict]) -> None:
     """The source still lists this vacancy: refresh its check timestamps without rebuilding it."""
     ts = now_iso()
@@ -336,6 +393,8 @@ def collect_source(source: dict, company: dict, jobs: dict[str, dict], alias_ind
         raise SourceError(f"no connector for '{source.get('ats')}'")
     raws = mod.list_jobs(source, http, settings)
     stats = {"listed": len(raws), "relevant": 0, "new": 0, "modified": 0, "filtered": 0, "detail_failed": 0}
+    source["jobs_found"] = len(raws)
+    large = is_large_board(source, settings)
     budget = settings.get("collection", {}).get("max_detail_requests_per_source", 40)
     recheck_days = settings.get("collection", {}).get("detail_recheck_days", 7)
     recheck_before = (today() - timedelta(days=recheck_days)).isoformat()
@@ -344,6 +403,8 @@ def collect_source(source: dict, company: dict, jobs: dict[str, dict], alias_ind
         if not raw.get("title") or not raw.get("url"):
             continue
         ok, _ = title_prefilter(raw["title"], raw.get("department") or "", company)
+        if ok and large:
+            ok = not outside_scope([parse_location(l, raw.get("country_hint")) for l in raw.get("locations") or []], settings)
         if not ok:
             stats["filtered"] += 1
             continue
@@ -452,6 +513,7 @@ def run_update(settings: dict, only_company: str | None = None, only_ats: str | 
         log.info("ok     %-32s %-15s listed=%-4d relevant=%-3d new=%-3d removed=%d", company["name"][:32],
                  source["ats"], stats["listed"], stats["relevant"], stats["new"], stats["removed"])
 
+    summary["filtered_out"] = refilter_existing(jobs, companies, src_db["sources"], settings, events)
     ingest_manual_jobs(jobs, companies, settings, events)
     if not (only_company or only_ats or limit):
         summary["aggregators"] = ingest_aggregators(jobs, companies, settings, events, http)

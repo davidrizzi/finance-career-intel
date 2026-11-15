@@ -90,6 +90,13 @@ COUNTRY_ALIASES = {
     "Norway": ["norway", "norvegia", "no"],
     "Portugal": ["portugal", "portogallo", "pt"],
     "Jersey": ["jersey", "je"],
+    "Argentina": ["argentina", "ar"], "Brazil": ["brazil", "brasil", "br"], "Mexico": ["mexico", "mx"],
+    "South Korea": ["south korea", "korea", "republic of korea", "kr"], "Taiwan": ["taiwan", "tw"],
+    "Philippines": ["philippines", "ph"], "Malaysia": ["malaysia", "my"], "Indonesia": ["indonesia", "id"],
+    "Thailand": ["thailand", "th"], "South Africa": ["south africa", "za"], "Israel": ["israel", "il"],
+    "Turkey": ["turkey", "turkiye", "tr"], "Greece": ["greece", "gr"], "Czech Republic": ["czech republic", "czechia", "cz"],
+    "Hungary": ["hungary", "hu"], "Romania": ["romania", "ro"], "Finland": ["finland", "fi"], "New Zealand": ["new zealand", "nz"],
+    "Bahrain": ["bahrain", "bh"], "Kuwait": ["kuwait", "kw"], "Egypt": ["egypt", "eg"],
     "Guernsey": ["guernsey", "gg"],
 }
 

@@ -19,6 +19,16 @@ SEARCH_TERMS = ["intern", "internship", "analyst", "graduate", "trainee", "summe
                 "associate", "stage", "praktikum", "working student", "placement"]
 
 
+def listing_location(text, path):
+    """Location shown in the listing. '3 Locations' is a placeholder: fall back to the city in the job path."""
+    if text and not re.match(r"^\d+ Locations?$", text.strip(), re.I):
+        return [text]
+    m = re.match(r"^/job/([^/]+)/", path or "")
+    if m and not re.search(r"\d|remote|multiple|various", m.group(1), re.I):
+        return [m.group(1).replace("-", " ")]
+    return []
+
+
 def _base(p):
     return f"https://{p['host']}/wday/cxs/{p['tenant']}/{p['site']}"
 
@@ -43,7 +53,7 @@ def _collect(http, p, text, found, cap):
             req = next((b for b in j.get("bulletFields") or [] if re.match(r"^[A-Za-z_-]*\d+", str(b))), None)
             found[path] = raw_job(
                 req or path.rsplit("/", 1)[-1], j.get("title"), f"https://{p['host']}/{p['site']}{path}",
-                locations=[j["locationsText"]] if j.get("locationsText") else [],
+                locations=listing_location(j.get("locationsText"), path),
                 detail_ref=f"{_base(p)}{path}")
         offset += PAGE
         if offset >= min(total, cap) or not data["jobPostings"]:
