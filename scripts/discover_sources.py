@@ -30,7 +30,8 @@ def main(argv=None) -> int:
     companies = load_companies()["companies"]
     sync_sources(companies)
     src_db = load_sources()
-    stats = run_discovery(companies, src_db, settings, args.limit, args.company, args.force)
+    stats = run_discovery(companies, src_db, settings, args.limit, args.company, args.force,
+                          checkpoint=save_sources)
     save_sources(src_db)
     prev = load_json(DATA_DIR / "meta.json", {}).get("last_run") or {"started": now_iso(), "sources_ok": 0}
     write_meta(prev, load_jobs()["jobs"], companies, src_db["sources"])

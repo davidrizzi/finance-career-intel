@@ -31,7 +31,11 @@
   },
   "discovery": {
     "max_companies_per_run": 200,
-    "recheck_after_days": 30
+    "recheck_after_days": 30,
+    "workers": 8,
+    "time_budget_minutes": 40,
+    "request_timeout_seconds": 15,
+    "max_retries": 1
   },
   "scoring": {
     "weights": {"sector": 25, "seniority": 20, "geography": 20, "profile": 15, "language": 10, "contract": 10},

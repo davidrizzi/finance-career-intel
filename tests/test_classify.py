@@ -160,3 +160,20 @@ def test_weights_are_configurable(settings):
 def test_keywords_match_whole_words_only(settings):
     r = scoring.score_job(_job(description="An excellent opportunity for an excellent communicator who writes clearly and listens actively in a busy team."), settings)
     assert not any("excel" in p.lower() and "skills" in p.lower() for p in r["positives"])
+
+
+@pytest.mark.parametrize("title,desc,future", [
+    ("CLOSED: Investment Group Internship (applications open December 15, 2099 – January 15, 2100)", "", True),
+    ("Analyst", "Applications open on 1 March 2020 and close soon.", False),          # already open
+    ("Analyst", "Applications open to all students in finance.", False),            # not a date
+    ("Summer Analyst", "Applications will open in early 2099.", True),
+])
+def test_future_window_needs_a_date_still_ahead(title, desc, future):
+    assert (classify.detect_future_window(title, desc) is not None) == future
+
+
+def test_closed_title_marks_the_posting_expired(settings):
+    from fcip import pipeline
+    assert classify.CLOSED_TITLE_RX.search("CLOSED: Munich Internship") and not classify.CLOSED_TITLE_RX.search("Closed-end Fund Analyst")
+    assert pipeline.compute_status({"title": "CLOSED: Munich Internship", "deadline": None}, settings)[0] == "Expired"
+    assert pipeline.compute_status({"title": "Closed-end Fund Analyst", "deadline": None}, settings)[0] == "Open"

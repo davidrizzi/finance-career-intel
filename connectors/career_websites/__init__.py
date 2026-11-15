@@ -97,7 +97,8 @@ def list_jobs(source, http, settings):
     # deeper paths first: they are the individual vacancy pages
     links.sort(key=lambda u: -urlparse(u).path.count("/"))
     errors = 0
-    for link in links[:MAX_PAGES]:
+    max_pages = source.get("_max_pages", MAX_PAGES)
+    for link in links[:max_pages]:
         try:
             page, page_final = http.fetch_page(link)
         except SourceError:
@@ -107,6 +108,6 @@ def list_jobs(source, http, settings):
             raw = to_raw(jp, page_final)
             if raw:
                 found.setdefault(raw["url"], raw)
-    if not found and links and errors == len(links[:MAX_PAGES]):
+    if not found and links and errors == len(links[:max_pages]):
         raise SourceError(f"career site: every linked job page failed to load ({errors})")
     return list(found.values())

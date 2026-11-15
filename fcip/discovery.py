@@ -1,6 +1,8 @@
 """Career-portal analysis: find each company's recruitment system from its own pages."""
 from __future__ import annotations
 
+import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import timedelta
 
 import connectors
@@ -92,13 +94,8 @@ def discover_source(source: dict, company: dict, http: Http, settings: dict) -> 
         return []
     # last resort: vacancy pages linked from the career page that publish structured data
     try:
-        probe = dict(source, url=final)
-        saved = career_websites.MAX_PAGES
-        career_websites.MAX_PAGES = 6
-        try:
-            found = career_websites.list_jobs(probe, http, settings)
-        finally:
-            career_websites.MAX_PAGES = saved
+        probe = dict(source, url=final, _max_pages=6)
+        found = career_websites.list_jobs(probe, http, settings)
     except SourceError:
         found = []
     if found:
@@ -111,7 +108,12 @@ def discover_source(source: dict, company: dict, http: Http, settings: dict) -> 
 
 
 def run_discovery(companies: list[dict], src_db: dict, settings: dict, limit: int | None = None,
-                  only_company: str | None = None, force: bool = False, http: Http | None = None) -> dict:
+                  only_company: str | None = None, force: bool = False, http: Http | None = None,
+                  checkpoint=None) -> dict:
+    """Analyse career pages in parallel (one host per worker), within a time budget.
+
+    `checkpoint(src_db)` is called every 20 pages so a run that is stopped keeps its progress.
+    """
     from .util import norm_text
 
     http = http or Http(settings)
@@ -142,16 +144,47 @@ def run_discovery(companies: list[dict], src_db: dict, settings: dict, limit: in
     todo.sort(key=lambda s: (s["status"] != "pending_discovery", order.get(comp[s["company_id"]].get("priority"), 2),
                              comp[s["company_id"]].get("junior_programmes") != "yes", s["id"]))
     stats = {"analysed": 0, "ats_found": 0, "jsonld": 0, "unsupported": 0, "no_structured_data": 0, "unreachable": 0,
-             "remaining": max(0, len(todo) - limit)}
-    for s in todo[:limit]:
-        c = comp[s["company_id"]]
-        new = discover_source(s, c, http, settings)
-        stats["analysed"] += 1
-        for ns in new:
-            if ns["id"] not in by_id:
-                by_id[ns["id"]] = ns
-                src_db["sources"].append(ns)
-        key = "ats_found" if new else {"unverified": "jsonld", "resolved": "ats_found"}.get(s["status"], s["status"])
-        stats[key] = stats.get(key, 0) + 1
-        log.info("%-34s %-18s %s", c["name"][:34], s["status"], (s.get("evidence") or s.get("last_error") or "")[:90])
+             "remaining": max(0, len(todo) - limit), "stopped_by_time_budget": False}
+    batch = todo[:limit]
+    workers = max(1, int(cfg.get("workers", 8)))
+    budget_s = float(cfg.get("time_budget_minutes", 40)) * 60
+    started = time.monotonic()
+
+    def work(s):
+        # one client per task: each company is a different host, and Http is not thread-safe
+        client = http if workers == 1 else Http(settings, timeout=cfg.get("request_timeout_seconds", 15),
+                                                max_retries=cfg.get("max_retries", 1))
+        return s, discover_source(s, comp[s["company_id"]], client, settings)
+
+    done = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        pending = set()
+        it = iter(batch)
+        while True:
+            while len(pending) < workers * 2:
+                if time.monotonic() - started > budget_s:
+                    stats["stopped_by_time_budget"] = True
+                    break
+                nxt = next(it, None)
+                if nxt is None:
+                    break
+                pending.add(pool.submit(work, nxt))
+            if not pending:
+                break
+            finished, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for fut in finished:
+                s, new = fut.result()
+                c = comp[s["company_id"]]
+                stats["analysed"] += 1
+                for ns in new:
+                    if ns["id"] not in by_id:
+                        by_id[ns["id"]] = ns
+                        src_db["sources"].append(ns)
+                key = "ats_found" if new else {"unverified": "jsonld", "resolved": "ats_found"}.get(s["status"], s["status"])
+                stats[key] = stats.get(key, 0) + 1
+                log.info("%-34s %-18s %s", c["name"][:34], s["status"], (s.get("evidence") or s.get("last_error") or "")[:90])
+                done += 1
+                if checkpoint and done % 20 == 0:
+                    checkpoint(src_db)
+    stats["remaining"] = max(0, len(todo) - stats["analysed"])
     return stats

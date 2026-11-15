@@ -64,7 +64,9 @@ export function sortJobs(jobs, key) {
   const score = (j) => j._score ?? j.score ?? 0;
   const cmp = {
     relevance: (a, b) => score(b) - score(a) || (PRIORITY_RANK[a.geo_priority] ?? 9) - (PRIORITY_RANK[b.geo_priority] ?? 9),
-    newest: (a, b) => (b.published || b.first_detected || "").localeCompare(a.published || a.first_detected || "") || score(b) - score(a),
+    // by publication date, newest first; postings without one go last (ordered by when they were detected)
+    newest: (a, b) => (!!b.published - !!a.published) || (b.published || "").localeCompare(a.published || "")
+      || (b.first_detected || "").localeCompare(a.first_detected || "") || score(b) - score(a),
     detected: (a, b) => (b.first_detected || "").localeCompare(a.first_detected || "") || score(b) - score(a),
     deadline: (a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999") || score(b) - score(a),
     company: (a, b) => a.company.localeCompare(b.company) || score(b) - score(a),

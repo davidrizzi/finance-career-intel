@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       discover_limit:
-        description: "Career pages to analyse for their recruitment system in this run (use 600 for the first run)"
+        description: "Career pages to analyse for their recruitment system in this run (stops after 40 minutes; progress is kept)"
         default: "150"
       skip_email:
         description: "Do not send the digest in this run"
@@ -45,10 +45,12 @@ jobs:
       # 1-2  load the company database, analyse career portals not yet analysed
       - name: Identify recruitment systems (next batch)
         continue-on-error: true
+        timeout-minutes: 50
         run: python scripts/discover_sources.py --limit "${{ github.event.inputs.discover_limit || '150' }}"
 
       # 3-9  collect, normalise, deduplicate, verify, score, detect changes, write JSON
       - name: Collect and score job postings
+        timeout-minutes: 70
         env:
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
@@ -56,6 +58,7 @@ jobs:
 
       - name: Re-check postings that do not come from a pollable board
         continue-on-error: true
+        timeout-minutes: 15
         run: python scripts/verify_jobs.py
 
       # The data is committed BEFORE any email is attempted: a mail failure can never lose an update.

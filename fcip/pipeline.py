@@ -155,6 +155,8 @@ def compute_status(job: dict, settings: dict) -> tuple[str, str | None]:
         return "Verification Failed", "The source could not be reached on the last checks; the posting may still be open"
     if job.get("future_window_note"):
         return "Future Application Window", job["future_window_note"]
+    if classify.CLOSED_TITLE_RX.search(job.get("title") or ""):
+        return "Expired", "The employer's own posting says applications are closed"
     if left is not None and left <= c.get("closing_soon_days", 7):
         return "Closing Soon", f"{left} day(s) left" if left else "Closes today"
     return "Open", None

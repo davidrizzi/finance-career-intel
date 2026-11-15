@@ -200,12 +200,12 @@ class Http:
     real connector code.
     """
 
-    def __init__(self, settings: dict | None = None):
+    def __init__(self, settings: dict | None = None, timeout: float | None = None, max_retries: int | None = None):
         import requests  # imported lazily so pure-logic tests need no network libs
 
         c = (settings or {}).get("collection", {})
-        self.timeout = c.get("request_timeout_seconds", 25)
-        self.max_retries = c.get("max_retries", 3)
+        self.timeout = timeout or c.get("request_timeout_seconds", 25)
+        self.max_retries = max_retries or c.get("max_retries", 3)
         self.min_gap = c.get("min_seconds_between_requests_per_host", 1.0)
         self.session = requests.Session()
         self.session.headers.update({

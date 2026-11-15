@@ -322,15 +322,50 @@ def extract_deadline(text: str) -> str | None:
     return None
 
 
+_MONTH_NAMES = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
 _FUTURE_RX = re.compile(
-    r"applications? (?:will )?(?:open|opens|opening|re-?open)s? (?:on|in|from)\s+(?P<when>[^.\n]{3,40})|"
+    r"applications? (?:will )?(?:open|opens|opening|re-?open)s?(?: on| in| from| between| as of)?\s+(?P<when>[^.\n)]{3,60})|"
     r"(?:not yet open|opening soon|register your interest|expression of interest|coming soon)", re.I)
+_WHEN_DATE = re.compile(rf"(?P<m>{_MONTH_NAMES})\.?\s+(?P<d>\d{{1,2}})(?:st|nd|rd|th)?,?\s+(?P<y>20\d{{2}})|"
+                        rf"(?P<d2>\d{{1,2}})(?:st|nd|rd|th)?\s+(?P<m2>{_MONTH_NAMES})\.?,?\s+(?P<y2>20\d{{2}})|"
+                        rf"(?P<m3>{_MONTH_NAMES})\s+(?P<y3>20\d{{2}})", re.I)
+
+
+def _when_start(text: str) -> date | None:
+    m = _WHEN_DATE.search(text or "")
+    if not m:
+        return None
+    g = m.groupdict()
+    try:
+        if g["y"]:
+            return date(int(g["y"]), _MONTHS[g["m"][:3].lower()], int(g["d"]))
+        if g["y2"]:
+            return date(int(g["y2"]), _MONTHS[g["m2"][:3].lower()], int(g["d2"]))
+        return date(int(g["y3"]), _MONTHS[g["m3"][:3].lower()], 1)
+    except (KeyError, ValueError):
+        return None
 
 
 def detect_future_window(title: str, description: str) -> str | None:
-    """Return the quoted wording when a posting announces a future application window."""
-    m = _FUTURE_RX.search(f"{title}\n{(description or '')[:3000]}")
-    return re.sub(r"\s+", " ", m.group(0)).strip()[:120] if m else None
+    """Return the quoted wording when a posting announces an application window that has not opened yet.
+
+    An announced opening date that is already past is not a future window.
+    """
+    from .util import today as _today
+
+    for m in _FUTURE_RX.finditer(f"{title}\n{(description or '')[:3000]}"):
+        when = m.group("when")
+        if when is not None:
+            if not re.match(rf"\s*(?:the\s+)?(?:\d|{_MONTH_NAMES}|early|mid|late|spring|summer|autumn|fall|winter|q[1-4])", when, re.I):
+                continue  # "applications open to all students" is not a date
+            start = _when_start(when)
+            if start is not None and start <= _today():
+                continue
+        return re.sub(r"\s+", " ", m.group(0)).strip()[:120]
+    return None
+
+
+CLOSED_TITLE_RX = re.compile(r"^\W*closed\b(?!-)|\(closed\)|\bclosed\s*:|\bclosed\s+[-–]\s|applications? (?:are |now )?closed", re.I)
 
 
 # ------------------------------------------------------------------ visa

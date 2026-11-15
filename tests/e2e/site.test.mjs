@@ -60,7 +60,8 @@ await page.waitForSelector(".jobs-table tbody tr");
 await page.fill("#q", "Partners Group");
 await page.waitForTimeout(100);
 const pg = await page.locator(".jobs-table tbody tr .c").allTextContents();
-check("search filters by company", pg.length > 0 && pg.every((t) => t.includes("Partners Group")), `${pg.length} rows`);
+const pgRows = await page.locator(".jobs-table tbody tr").allTextContents();
+check("search keeps only rows containing every search word", pg.length > 0 && pgRows.every((t) => /partners/i.test(t) && /group/i.test(t)) && pg.filter((t) => t.includes("Partners Group")).length > 0, `${pg.length} rows`);
 await page.fill("#q", "");
 await page.locator('details:has(input[data-f="company"]) summary').click();
 await page.locator('input[data-f="company"][value="Point72"]').check();
@@ -77,8 +78,11 @@ await page.click("#clear");
 await page.selectOption("#sort", "newest");
 await page.waitForTimeout(100);
 const dates = await page.locator(".jobs-table tbody tr .c-dates div[data-l='Published']").allTextContents();
-const ts = dates.map((d) => Date.parse(d + " UTC")).filter((x) => !isNaN(x));
-check("sort by newest orders publication dates", ts.length > 1 && ts.every((v, i) => i === 0 || ts[i - 1] >= v));
+const ts = dates.map((d) => Date.parse(d + " UTC"));
+const known = ts.filter((x) => !isNaN(x));
+const firstUnknown = ts.findIndex((x) => isNaN(x));
+check("sort by newest orders publication dates, unknown dates last",
+  known.length > 1 && known.every((v, i) => i === 0 || known[i - 1] >= v) && (firstUnknown === -1 || ts.slice(firstUnknown).every((x) => isNaN(x))));
 await page.selectOption("#sort", "relevance");
 
 // save a job, persistence across reload
